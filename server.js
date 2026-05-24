@@ -220,32 +220,17 @@ function parseFileInfo(filePath) {
   if (tvMatch) {
     const seasonNum = parseInt(tvMatch[1], 10);
     const episodeNum = parseInt(tvMatch[2], 10);
-    
-    // Extract Show Title (everything before the S01E02)
-    let showTitle = baseName.substring(0, tvMatch.index);
-    
-    // Strip year from show title if it exists (e.g. "One Punch Man (2015)" -> "One Punch Man")
-    const showYearMatch = showTitle.match(/\b(19\d\d|20\d\d)\b/);
-    if (showYearMatch) {
-      const idx = showTitle.indexOf(showYearMatch[1]);
-      showTitle = showTitle.substring(0, idx);
-    }
-    
-    showTitle = showTitle
-      .replace(/[\.\_\-\(\)\[\]]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
 
-    // If show title is empty, use parent directory's name
-    if (!showTitle) {
-      const parentDir = path.basename(path.dirname(filePath));
-      // check if parent directory is a Season directory
-      if (parentDir.toLowerCase().includes('season')) {
-        showTitle = path.basename(path.dirname(path.dirname(filePath)));
-      } else {
-        showTitle = parentDir;
-      }
+    // Derive show title from folder structure — more reliable than filename parsing.
+    // If the immediate parent is a "Season XX" folder, step up one more level.
+    const immediateParent = path.basename(path.dirname(filePath));
+    let showTitle;
+    if (/season\s*\d+/i.test(immediateParent)) {
+      showTitle = path.basename(path.dirname(path.dirname(filePath)));
+    } else {
+      showTitle = immediateParent;
     }
+    showTitle = showTitle.trim() || "Unknown Series";
 
     // Extract Episode Title (everything after S01E02)
     let episodeTitle = baseName.substring(tvMatch.index + tvMatch[0].length)
@@ -469,7 +454,8 @@ async function scanMedia() {
 
   library = {
     movies: parsedMovies.sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt)),
-    shows: Array.from(parsedShowsMap.values()).sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt))
+    shows: Array.from(parsedShowsMap.values()).sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt)),
+    watchHistory: library.watchHistory || []
   };
 
   saveLibrary();

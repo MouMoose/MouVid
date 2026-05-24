@@ -634,7 +634,15 @@ h1, h2, h3, .brand {
   font-size: 1.05rem;
   line-height: 1.6;
   color: #cccccc;
-  margin-bottom: 30px;
+  margin-bottom: 10px;
+}
+
+.modal-path {
+  font-size: 0.78rem;
+  font-family: 'Courier New', Courier, monospace;
+  color: #666666;
+  word-break: break-all;
+  margin-bottom: 24px;
 }
 
 .modal-actions {

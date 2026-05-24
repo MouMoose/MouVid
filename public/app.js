@@ -371,7 +371,8 @@ function openDetailsModal(id, type) {
     playBtn.style.display = 'inline-flex';
     openWithSection.classList.remove('hidden');
     document.getElementById('modal-duration').textContent = 'Movie';
-    document.getElementById('modal-synopsis').textContent = `Play this local movie directly. Path: ${media.path}`;
+    document.getElementById('modal-synopsis').textContent = 'Play this local movie directly.';
+    document.getElementById('modal-path').textContent = media.path;
     
     playBtn.onclick = () => {
       playVideo(media.title, media.path);
@@ -382,13 +383,25 @@ function openDetailsModal(id, type) {
     playBtn.style.display = 'none';
     openWithSection.classList.add('hidden');
     document.getElementById('modal-duration').textContent = `${Object.keys(media.seasons).length} Seasons`;
-    document.getElementById('modal-synopsis').textContent = `Browse episodes for this series. Path: ${media.path || ''}`;
-    
+    document.getElementById('modal-synopsis').textContent = 'Browse episodes for this series.';
+
+    // Derive show folder from first episode path (go up 2 levels: file → season → show)
+    const seasonKeys = Object.keys(media.seasons).sort((a,b) => parseInt(a) - parseInt(b));
+    let showFolder = '';
+    if (seasonKeys.length > 0) {
+      const firstEp = (media.seasons[seasonKeys[0]] || [])[0];
+      if (firstEp && firstEp.path) {
+        const sep = firstEp.path.includes('\\') ? '\\' : '/';
+        const parts = firstEp.path.split(sep);
+        parts.splice(-2);
+        showFolder = parts.join(sep);
+      }
+    }
+    document.getElementById('modal-path').textContent = showFolder;
+
     // Build Seasons Selector
     const seasonSelect = document.getElementById('season-select');
     seasonSelect.innerHTML = '';
-    
-    const seasonKeys = Object.keys(media.seasons).sort((a,b) => parseInt(a) - parseInt(b));
     seasonKeys.forEach(season => {
       const option = document.createElement('option');
       option.value = season;
@@ -838,8 +851,8 @@ function setupSpatialNavigation() {
           e.preventDefault();
           closeDetailsModal();
         } else {
-          // Main menu — exit the app
-          window.close();
+          // Main menu — confirm before exiting
+          if (confirm('Exit MouVid?')) window.close();
         }
         break;
       default:
