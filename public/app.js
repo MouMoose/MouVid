@@ -1228,6 +1228,10 @@ function recordWatch(filePath) {
 }
 
 function stopVideo() {
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+  }
+
   videoElement.pause();
   videoElement.src = '';
   
