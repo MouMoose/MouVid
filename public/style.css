@@ -109,26 +109,66 @@ h1, h2, h3, .brand {
 }
 
 /* Search Box */
+.search-bar-container {
+  padding: 12px 4%;
+  position: relative;
+  z-index: 6;
+}
+
 .search-box {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
   margin-right: 25px;
 }
 
+.search-label {
+  color: #e50914;
+  font-family: 'Outfit', sans-serif;
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 6px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
 .search-input {
-  background-color: rgba(0, 0, 0, 0.6);
+  background-color: #000000;
   border: 1px solid #444444;
   border-radius: 4px;
   color: #ffffff;
-  padding: 8px 16px;
+  padding: 12px 40px 12px 16px;
   font-size: 0.9rem;
-  width: 220px;
+  width: 330px;
   outline: none;
   font-family: inherit;
   transition: width 0.3s ease, border-color 0.3s ease, background-color 0.3s ease;
 }
 
 .search-input:focus {
-  width: 300px;
-  background-color: rgba(0, 0, 0, 0.85);
+  width: 450px;
+  background-color: #000000;
+}
+
+.search-clear-btn {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  line-height: 1;
+  display: none;
+}
+
+.search-clear-btn:hover {
+  color: #fff;
+}
+
+.search-box.has-value .search-clear-btn {
+  display: block;
 }
 
 /* Server Status Indicator */
@@ -187,7 +227,7 @@ h1, h2, h3, .brand {
 .search-input.focusable.focused {
   border-color: #e50914;
   box-shadow: 0 0 10px rgba(229, 9, 20, 0.5);
-  width: 260px;
+  width: 390px;
 }
 
 /* Hero Banner */

@@ -643,10 +643,23 @@ function setupInteractivity() {
 
   // Client search engine
   const searchInput = document.getElementById('search-input');
+  const searchClearBtn = document.getElementById('search-clear-btn');
+  const searchBox = searchInput ? searchInput.closest('.search-box') : null;
+
   searchInput.addEventListener('input', () => {
     const term = searchInput.value.toLowerCase().trim();
+    if (searchBox) searchBox.classList.toggle('has-value', term.length > 0);
     filterLibraryCards(term);
   });
+
+  if (searchClearBtn) {
+    searchClearBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      if (searchBox) searchBox.classList.remove('has-value');
+      filterLibraryCards('');
+      searchInput.focus();
+    });
+  }
 }
 
 // ==========================================
