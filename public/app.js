@@ -8,6 +8,8 @@ let coverPickerTarget = null; // { id, type } of the card being edited
 let lastFocusedBeforePicker = null;
 let isHUDVisible = true;
 let hudTimeout = null;
+let activeGenreFilters = new Set();
+let genreFilterMode = 'or'; // 'or' | 'and'
 
 // DOM Elements
 const navbar = document.getElementById('navbar');
@@ -225,6 +227,9 @@ function renderLibrary() {
   
   // Set default hero banner featured movie if available
   updateHeroBanner();
+
+  // Build genre filter bar
+  buildGenreBar();
 }
 
 function isScanningLibrary() {
@@ -251,6 +256,7 @@ function createRailRow(title, items) {
     card.setAttribute('tabindex', '0');
     card.dataset.id = item.id;
     card.dataset.type = item.mediaType;
+    card.dataset.genres = JSON.stringify(item.genres || []);
 
     const img = document.createElement('img');
     img.className = 'media-card-img';
@@ -359,6 +365,16 @@ function openDetailsModal(id, type) {
   document.getElementById('modal-year').textContent = media.year || 'Series';
   document.getElementById('modal-type-tag').textContent = type.toUpperCase();
   document.getElementById('modal-poster').src = media.poster;
+
+  // Genres
+  const genresEl = document.getElementById('modal-genres');
+  genresEl.innerHTML = '';
+  (media.genres || []).forEach(g => {
+    const pill = document.createElement('span');
+    pill.className = 'modal-genre-pill';
+    pill.textContent = g;
+    genresEl.appendChild(pill);
+  });
   
   const epSection = document.getElementById('episodes-section');
   const playBtn = document.getElementById('modal-play-btn');
@@ -630,6 +646,99 @@ function setupInteractivity() {
   searchInput.addEventListener('input', () => {
     const term = searchInput.value.toLowerCase().trim();
     filterLibraryCards(term);
+  });
+}
+
+// ==========================================
+// GENRE FILTER BAR
+// ==========================================
+
+function buildGenreBar() {
+  const bar = document.getElementById('genre-bar');
+  if (!bar) return;
+
+  // Collect all unique genres across movies and shows
+  const allGenres = new Set();
+  [...libraryData.movies, ...libraryData.shows].forEach(item => {
+    (item.genres || []).forEach(g => allGenres.add(g));
+  });
+
+  bar.innerHTML = '';
+  if (allGenres.size === 0) {
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = 'flex';
+
+  // AND / OR toggle
+  const modeToggle = document.createElement('div');
+  modeToggle.className = 'genre-mode-toggle';
+
+  ['OR', 'AND'].forEach(mode => {
+    const btn = document.createElement('button');
+    btn.className = 'genre-mode-btn' + (genreFilterMode === mode.toLowerCase() ? ' active' : '');
+    btn.textContent = mode;
+    btn.onclick = () => {
+      genreFilterMode = mode.toLowerCase();
+      bar.querySelectorAll('.genre-mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      applyGenreFilter();
+    };
+    modeToggle.appendChild(btn);
+  });
+  bar.appendChild(modeToggle);
+
+  // Genre pills
+  Array.from(allGenres).sort().forEach(genre => {
+    const pill = document.createElement('button');
+    pill.className = 'genre-pill focusable' + (activeGenreFilters.has(genre) ? ' active' : '');
+    pill.textContent = genre;
+    pill.setAttribute('tabindex', '0');
+    pill.onclick = () => {
+      if (activeGenreFilters.has(genre)) {
+        activeGenreFilters.delete(genre);
+        pill.classList.remove('active');
+      } else {
+        activeGenreFilters.add(genre);
+        pill.classList.add('active');
+      }
+      applyGenreFilter();
+    };
+    bar.appendChild(pill);
+  });
+
+  // Clear button
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'genre-clear-btn focusable';
+  clearBtn.textContent = 'Clear';
+  clearBtn.setAttribute('tabindex', '0');
+  clearBtn.onclick = () => {
+    activeGenreFilters.clear();
+    bar.querySelectorAll('.genre-pill').forEach(p => p.classList.remove('active'));
+    applyGenreFilter();
+  };
+  bar.appendChild(clearBtn);
+}
+
+function applyGenreFilter() {
+  const cards = document.querySelectorAll('.media-card');
+
+  cards.forEach(card => {
+    if (activeGenreFilters.size === 0) {
+      card.style.display = '';
+    } else {
+      const cardGenres = JSON.parse(card.dataset.genres || '[]');
+      const match = genreFilterMode === 'or'
+        ? cardGenres.some(g => activeGenreFilters.has(g))
+        : [...activeGenreFilters].every(g => cardGenres.includes(g));
+      card.style.display = match ? '' : 'none';
+    }
+  });
+
+  // Hide rails where all cards are hidden
+  document.querySelectorAll('.rail').forEach(rail => {
+    const visible = rail.querySelectorAll('.media-card:not([style*="display: none"])');
+    rail.style.display = visible.length > 0 ? '' : 'none';
   });
 }
 

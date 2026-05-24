@@ -115,90 +115,114 @@ function findLocalCover(dirPath, baseNameWithoutExt) {
   return null;
 }
 
-async function fetchOnlineMoviePoster(title, year) {
+// Shared JSON fetcher for HTTPS APIs
+const httpGetJson = (url) => new Promise((resolve) => {
+  https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
+    let data = '';
+    res.on('data', chunk => data += chunk);
+    res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(null); } });
+  }).on('error', () => resolve(null));
+});
+
+// TMDB genre ID -> name maps (stable, hardcoded to avoid extra API calls)
+const TMDB_MOVIE_GENRES = {
+  28:'Action', 12:'Adventure', 16:'Animation', 35:'Comedy', 80:'Crime',
+  99:'Documentary', 18:'Drama', 10751:'Family', 14:'Fantasy', 36:'History',
+  27:'Horror', 10402:'Music', 9648:'Mystery', 10749:'Romance', 878:'Sci-Fi',
+  10770:'TV Movie', 53:'Thriller', 10752:'War', 37:'Western'
+};
+const TMDB_TV_GENRES = {
+  10759:'Action & Adventure', 16:'Animation', 35:'Comedy', 80:'Crime',
+  99:'Documentary', 18:'Drama', 10751:'Family', 10762:'Kids',
+  9648:'Mystery', 10763:'News', 10764:'Reality', 10765:'Sci-Fi & Fantasy',
+  10766:'Soap', 10767:'Talk', 10768:'War & Politics', 37:'Western'
+};
+
+// Fetch movie poster URL + genres from OMDB → TMDB
+async function fetchMovieData(title, year) {
   const cleanTitle = title.trim();
+  let url = null;
+  let genres = [];
 
-  const httpGetJson = (url) => new Promise((resolve) => {
-    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(null); } });
-    }).on('error', () => resolve(null));
-  });
-
-  // 1. OMDB — most reliable for mainstream movies (requires free API key)
   if (config.omdbApiKey) {
     const yearParam = year ? `&y=${year}` : '';
     const data = await httpGetJson(
       `https://www.omdbapi.com/?t=${encodeURIComponent(cleanTitle)}${yearParam}&type=movie&apikey=${config.omdbApiKey}`
     );
-    if (data && data.Response === 'True' && data.Poster && data.Poster !== 'N/A') {
-      const highRes = data.Poster.replace(/@\._V1_.*\.jpg$/i, '@._V1_SX600.jpg');
-      console.log(`  [Poster/OMDB] "${cleanTitle}" -> "${data.Title}" (${data.Year})`);
-      return highRes;
+    if (data && data.Response === 'True') {
+      if (data.Poster && data.Poster !== 'N/A')
+        url = data.Poster.replace(/@\._V1_.*\.jpg$/i, '@._V1_SX600.jpg');
+      if (data.Genre && data.Genre !== 'N/A')
+        genres = data.Genre.split(',').map(g => g.trim()).filter(Boolean);
+      if (url) console.log(`  [Poster/OMDB] "${cleanTitle}" -> "${data.Title}" (${data.Year})`);
     }
   }
 
-  // 2. TMDB (requires free API key)
-  if (config.tmdbApiKey) {
+  if (config.tmdbApiKey && (!url || !genres.length)) {
     const yearParam = year ? `&year=${year}` : '';
     const data = await httpGetJson(
       `https://api.themoviedb.org/3/search/movie?api_key=${config.tmdbApiKey}&query=${encodeURIComponent(cleanTitle)}${yearParam}`
     );
     if (data && data.results && data.results.length > 0) {
-      const best = data.results.find(r => r.poster_path);
+      const best = data.results.find(r => r.poster_path) || data.results[0];
       if (best) {
-        console.log(`  [Poster/TMDB] "${cleanTitle}" -> "${best.title}"`);
-        return `https://image.tmdb.org/t/p/w500${best.poster_path}`;
+        if (!url && best.poster_path) {
+          url = `https://image.tmdb.org/t/p/w500${best.poster_path}`;
+          console.log(`  [Poster/TMDB] "${cleanTitle}" -> "${best.title}"`);
+        }
+        if (!genres.length && best.genre_ids)
+          genres = best.genre_ids.map(id => TMDB_MOVIE_GENRES[id]).filter(Boolean);
       }
     }
   }
 
-  return null;
+  return { url, genres };
 }
 
-// Fetch TV Series poster — OMDB first, then TMDB, then TVMaze fallback
-async function fetchOnlineShowPoster(showTitle) {
-  const httpGetJson = (url) => new Promise((resolve) => {
-    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(null); } });
-    }).on('error', () => resolve(null));
-  });
+// Fetch show poster URL + genres from OMDB → TMDB → TVMaze
+async function fetchShowData(title) {
+  let url = null;
+  let genres = [];
 
-  // 1. OMDB (requires free API key)
   if (config.omdbApiKey) {
     const data = await httpGetJson(
-      `https://www.omdbapi.com/?t=${encodeURIComponent(showTitle)}&type=series&apikey=${config.omdbApiKey}`
+      `https://www.omdbapi.com/?t=${encodeURIComponent(title)}&type=series&apikey=${config.omdbApiKey}`
     );
-    if (data && data.Response === 'True' && data.Poster && data.Poster !== 'N/A') {
-      const highRes = data.Poster.replace(/@\._V1_.*\.jpg$/i, '@._V1_SX600.jpg');
-      console.log(`  [Poster/OMDB] "${showTitle}" -> "${data.Title}"`);
-      return highRes;
+    if (data && data.Response === 'True') {
+      if (data.Poster && data.Poster !== 'N/A')
+        url = data.Poster.replace(/@\._V1_.*\.jpg$/i, '@._V1_SX600.jpg');
+      if (data.Genre && data.Genre !== 'N/A')
+        genres = data.Genre.split(',').map(g => g.trim()).filter(Boolean);
+      if (url) console.log(`  [Poster/OMDB] "${title}" -> "${data.Title}"`);
     }
   }
 
-  // 2. TMDB TV (requires free API key)
-  if (config.tmdbApiKey) {
+  if (config.tmdbApiKey && (!url || !genres.length)) {
     const data = await httpGetJson(
-      `https://api.themoviedb.org/3/search/tv?api_key=${config.tmdbApiKey}&query=${encodeURIComponent(showTitle)}`
+      `https://api.themoviedb.org/3/search/tv?api_key=${config.tmdbApiKey}&query=${encodeURIComponent(title)}`
     );
     if (data && data.results && data.results.length > 0) {
-      const best = data.results.find(r => r.poster_path);
+      const best = data.results.find(r => r.poster_path) || data.results[0];
       if (best) {
-        console.log(`  [Poster/TMDB] "${showTitle}" -> "${best.name}"`);
-        return `https://image.tmdb.org/t/p/w500${best.poster_path}`;
+        if (!url && best.poster_path) {
+          url = `https://image.tmdb.org/t/p/w500${best.poster_path}`;
+          console.log(`  [Poster/TMDB] "${title}" -> "${best.name}"`);
+        }
+        if (!genres.length && best.genre_ids)
+          genres = best.genre_ids.map(id => TMDB_TV_GENRES[id]).filter(Boolean);
       }
     }
   }
 
-  // 3. TVMaze fallback (no key needed)
-  const json = await httpGetJson(`https://api.tvmaze.com/singlesearch/shows?q=${encodeURIComponent(showTitle)}`);
-  if (json && json.image) {
-    return json.image.original || json.image.medium || null;
+  if (!url || !genres.length) {
+    const json = await httpGetJson(`https://api.tvmaze.com/singlesearch/shows?q=${encodeURIComponent(title)}`);
+    if (json) {
+      if (!url && json.image) url = json.image.original || json.image.medium || null;
+      if (!genres.length && json.genres) genres = json.genres;
+    }
   }
-  return null;
+
+  return { url, genres };
 }
 
 // Regex configurations for media file details
@@ -349,18 +373,34 @@ async function scanMedia() {
       
       // 1. Check local poster
       const localCover = findLocalCover(path.dirname(file), path.basename(file, path.extname(file)));
+      const existingGenres = existingMovie && existingMovie.genres && existingMovie.genres.length > 0
+        ? existingMovie.genres : null;
+
+      let genres = [];
       if (localCover) {
         posterPath = `/api/poster?localPath=${encodeURIComponent(localCover)}`;
-      } else if (existingMovie && existingMovie.poster) {
+        // Still need genres if missing
+        if (!existingGenres) {
+          const d = await fetchMovieData(info.title, info.year);
+          genres = d.genres;
+        } else {
+          genres = existingGenres;
+        }
+      } else if (existingMovie && existingMovie.poster && existingGenres) {
+        // Has poster and genres — skip all API calls
         posterPath = existingMovie.poster;
+        genres = existingGenres;
       } else {
-        // 2. Fetch online
-        const onlineUrl = await fetchOnlineMoviePoster(info.title, info.year);
-        if (onlineUrl) {
+        // Fetch poster and/or genres from API
+        const d = await fetchMovieData(info.title, info.year);
+        genres = d.genres;
+        if (existingMovie && existingMovie.poster) {
+          posterPath = existingMovie.poster;
+        } else if (d.url) {
           const cacheFileName = `${getHash(info.title + (info.year || ''))}.jpg`;
           const cacheFilePath = path.join(POSTERS_DIR, cacheFileName);
           try {
-            await downloadFile(onlineUrl, cacheFilePath);
+            await downloadFile(d.url, cacheFilePath);
             posterPath = `/cache/posters/${cacheFileName}`;
           } catch (err) {
             console.error(`Failed to download poster for ${info.title}:`, err.message);
@@ -374,6 +414,7 @@ async function scanMedia() {
         year: info.year,
         path: file,
         poster: posterPath || '/assets/default-poster.jpg',
+        genres,
         addedAt: existingMovie ? existingMovie.addedAt : new Date().toISOString()
       });
     } else if (info.type === 'show') {
@@ -385,27 +426,37 @@ async function scanMedia() {
         // Look up in existing library
         const existingLibraryShow = library.shows.find(s => s.title === showTitle);
         let posterPath = '';
+        const existingGenres = existingLibraryShow && existingLibraryShow.genres && existingLibraryShow.genres.length > 0
+          ? existingLibraryShow.genres : null;
+        let genres = [];
 
-        // 1. Check local poster (in show directory or parent directories)
+        // 1. Check local poster (step up past Season folder if needed)
         let showDir = path.dirname(file);
-        // If nested inside Season XX, check parent directory
-        if (path.basename(showDir).toLowerCase().includes('season')) {
-          showDir = path.dirname(showDir);
-        }
+        if (path.basename(showDir).toLowerCase().includes('season')) showDir = path.dirname(showDir);
         const localCover = findLocalCover(showDir, 'poster') || findLocalCover(showDir, showTitle);
-        
+
         if (localCover) {
           posterPath = `/api/poster?localPath=${encodeURIComponent(localCover)}`;
-        } else if (existingLibraryShow && existingLibraryShow.poster) {
+          if (!existingGenres) {
+            const d = await fetchShowData(showTitle);
+            genres = d.genres;
+          } else {
+            genres = existingGenres;
+          }
+        } else if (existingLibraryShow && existingLibraryShow.poster && existingGenres) {
+          // Has everything — skip API
           posterPath = existingLibraryShow.poster;
+          genres = existingGenres;
         } else {
-          // 2. Fetch online
-          const onlineUrl = await fetchOnlineShowPoster(showTitle);
-          if (onlineUrl) {
+          const d = await fetchShowData(showTitle);
+          genres = d.genres;
+          if (existingLibraryShow && existingLibraryShow.poster) {
+            posterPath = existingLibraryShow.poster;
+          } else if (d.url) {
             const cacheFileName = `${getHash(showTitle)}.jpg`;
             const cacheFilePath = path.join(POSTERS_DIR, cacheFileName);
             try {
-              await downloadFile(onlineUrl, cacheFilePath);
+              await downloadFile(d.url, cacheFilePath);
               posterPath = `/cache/posters/${cacheFileName}`;
             } catch (err) {
               console.error(`Failed to download poster for show ${showTitle}:`, err.message);
@@ -417,6 +468,7 @@ async function scanMedia() {
           id: getHash(showTitle),
           title: showTitle,
           poster: posterPath || '/assets/default-poster.jpg',
+          genres,
           addedAt: existingLibraryShow ? existingLibraryShow.addedAt : new Date().toISOString(),
           seasons: {}
         };
@@ -505,6 +557,12 @@ app.post('/api/watch', (req, res) => {
   }
 
   if (!entry) return res.status(404).json({ error: 'media not found' });
+
+  // Attach genres from current library data
+  const libraryItem = entry.mediaType === 'movie'
+    ? library.movies.find(m => m.id === entry.id)
+    : library.shows.find(s => s.id === entry.id);
+  if (libraryItem && libraryItem.genres) entry.genres = libraryItem.genres;
 
   library.watchHistory = (library.watchHistory || []).filter(w => w.id !== entry.id);
   library.watchHistory.unshift(entry);

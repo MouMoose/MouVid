@@ -381,7 +381,6 @@ h1, h2, h3, .brand {
   padding: 0 4% 50px 4%;
   position: relative;
   z-index: 4;
-  margin-top: -8vh; /* Overlap with hero banner gradient */
 }
 
 .rail {
@@ -694,6 +693,111 @@ h1, h2, h3, .brand {
   color: #ffffff;
   transform: translateX(4px);
   box-shadow: 0 0 12px rgba(229, 9, 20, 0.3);
+}
+
+/* Genre Filter Bar */
+.genre-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 4% 10px;
+  position: relative;
+  z-index: 5;
+  margin-top: -8vh;
+  background: linear-gradient(to bottom, transparent 0%, #141414 40%);
+}
+
+.genre-mode-toggle {
+  display: flex;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+
+.genre-mode-btn {
+  background: transparent;
+  border: none;
+  color: #888;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.04em;
+}
+
+.genre-mode-btn.active {
+  background-color: rgba(229,9,20,0.8);
+  color: #fff;
+}
+
+.genre-pill {
+  background-color: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  color: #ccc;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 5px 14px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.genre-pill:hover, .genre-pill.focusable.focused {
+  border-color: #e50914;
+  color: #fff;
+  background-color: rgba(229,9,20,0.15);
+}
+
+.genre-pill.active {
+  background-color: #e50914;
+  border-color: #e50914;
+  color: #fff;
+  box-shadow: 0 0 10px rgba(229,9,20,0.5);
+}
+
+.genre-clear-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 20px;
+  color: #888;
+  font-family: inherit;
+  font-size: 0.78rem;
+  padding: 5px 14px;
+  cursor: pointer;
+  margin-left: 4px;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.genre-clear-btn:hover, .genre-clear-btn.focusable.focused {
+  border-color: #fff;
+  color: #fff;
+}
+
+/* Modal genre pills */
+.modal-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.modal-genre-pill {
+  background-color: rgba(229,9,20,0.15);
+  border: 1px solid rgba(229,9,20,0.4);
+  border-radius: 12px;
+  color: #ff6b6b;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  letter-spacing: 0.03em;
 }
 
 /* TV Episodes section */
