@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MouVid - Home Media Library</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- App Header / Navbar -->
+  <header class="navbar" id="navbar">
+    <div class="nav-left">
+      <div class="brand focusable" id="nav-brand" tabindex="0">MouVid</div>
+      <nav class="nav-links">
+        <div class="nav-link focusable" id="nav-home" tabindex="0">Home</div>
+        <div class="nav-link focusable" id="nav-movies" tabindex="0">Movies</div>
+        <div class="nav-link focusable" id="nav-shows" tabindex="0">TV Shows</div>
+        <div class="nav-link focusable" id="nav-settings-btn" tabindex="0">Settings</div>
+      </nav>
+    </div>
+    <div class="nav-right">
+      <div class="search-box">
+        <input type="text" class="search-input focusable" id="search-input" placeholder="Search..." tabindex="0">
+      </div>
+      <button class="btn-icon focusable" id="nav-refresh-btn" tabindex="0" title="Refresh Library">
+        <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+      </button>
+      <div class="status-indicator" id="status-indicator">
+        <span class="status-dot"></span>
+        <span class="status-text" id="status-text">Connected</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Scan Progress Bar -->
+  <div class="scan-status-bar hidden" id="scan-status-bar">
+    <span class="scan-status-spinner"></span>
+    <span class="scan-status-msg" id="scan-status-msg">Scanning…</span>
+  </div>
+
+  <!-- Main View Container -->
+  <main class="main-content" id="main-content">
+    
+    <!-- Hero Banner (Featured Media) -->
+    <section class="hero-banner" id="hero-banner">
+      <div class="hero-backdrop" id="hero-backdrop"></div>
+      <div class="hero-overlay"></div>
+      <div class="hero-details">
+        <h1 class="hero-title" id="hero-title">Welcome to MouVid</h1>
+        <p class="hero-meta" id="hero-meta">Stream your library across your LAN</p>
+        <p class="hero-synopsis" id="hero-synopsis">Select a movie or series below to begin. Configure your media directory under Settings to scan files.</p>
+        <div class="hero-buttons">
+          <button class="btn btn-play focusable" id="hero-play" tabindex="0">
+            <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+            Play
+          </button>
+          <button class="btn btn-info focusable" id="hero-info" tabindex="0">
+            <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M11 9h2V7h-2zm1 11c-4.41 0-8-3.59-8-8s3.59-8 8-8s8 3.59 8 8s-3.59 8-8 8zm0-18C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2z"/></svg>
+            More Info
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Library Rails -->
+    <section class="rails-container" id="rails-container">
+      <!-- Rows will be injected here by app.js -->
+      <div class="loading-state" id="loading-state">
+        <div class="spinner"></div>
+        <p>Scanning E:\Media library...</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Media Details Overlay Modal -->
+  <div class="details-modal" id="details-modal">
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal-container">
+      <button class="modal-close focusable" id="modal-close" tabindex="0">
+        <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+      
+      <div class="modal-content">
+        <div class="modal-left">
+          <img class="modal-poster" id="modal-poster" src="" alt="Poster">
+        </div>
+        <div class="modal-right">
+          <h2 class="modal-title" id="modal-title">Media Title</h2>
+          <div class="modal-metadata">
+            <span class="meta-year" id="modal-year">2026</span>
+            <span class="meta-tag" id="modal-type-tag">MOVIE</span>
+            <span class="meta-duration" id="modal-duration">2h 15m</span>
+          </div>
+          <p class="modal-synopsis" id="modal-synopsis">This is the description of the selected video file parsed from the E:\Media directory.</p>
+          <div class="modal-actions">
+            <div class="modal-primary-actions">
+              <button class="btn btn-play focusable" id="modal-play-btn" tabindex="0">
+                <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+                Play
+              </button>
+              <button class="btn btn-accent focusable" id="modal-change-cover-btn" tabindex="0">
+                <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                Change Cover
+              </button>
+            </div>
+            <div class="modal-open-with-section hidden" id="modal-open-with-section">
+              <button class="btn btn-accent focusable" id="modal-open-with-btn" tabindex="0">
+                <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+                Open With
+              </button>
+              <div class="open-with-options hidden" id="open-with-options">
+                <div class="open-with-option focusable" id="owith-builtin" tabindex="0">
+                  <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+                  MouVid Player
+                </div>
+                <div class="open-with-option focusable" id="owith-browser" tabindex="0">
+                  <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12z"/></svg>
+                  Browser / System Player
+                </div>
+                <div class="open-with-option focusable" id="owith-vlc" tabindex="0">
+                  <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+                  VLC (Desktop)
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TV Shows Episode Section -->
+          <div class="episodes-section" id="episodes-section">
+            <div class="episodes-header">
+              <h3>Episodes</h3>
+              <div class="season-selector-wrapper">
+                <select class="season-select focusable" id="season-select" tabindex="0">
+                  <!-- Seasons options will be injected -->
+                </select>
+              </div>
+            </div>
+            <div class="episodes-list" id="episodes-list">
+              <!-- Episodes list will be injected here -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Overlay Panel -->
+  <div class="settings-panel" id="settings-panel">
+    <div class="settings-container">
+      <div class="settings-header">
+        <h2>MouVid Server Settings</h2>
+        <button class="btn btn-close focusable" id="settings-close" tabindex="0">Close</button>
+      </div>
+      <div class="settings-body">
+        <div class="settings-section">
+          <h3>Media Scan Paths</h3>
+          <p class="settings-desc">Specify the directories on your host computer containing your movies and series. Separate multiple folders with commas.</p>
+          <div class="path-input-row">
+            <input type="text" class="input-text focusable" id="settings-paths-input" value="E:\Media" tabindex="0">
+          </div>
+        </div>
+        <div class="settings-section">
+          <h3>Cover Art API Keys</h3>
+          <p class="settings-desc">Add free API keys to unlock additional poster sources. TMDB is the most comprehensive and OMDB pulls directly from IMDB data.</p>
+          <div class="api-key-row">
+            <label class="api-key-label">TMDB Key <span class="api-key-status" id="tmdb-key-status">○ Not set</span> <a class="api-key-link" href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">Get free key ↗</a></label>
+            <div class="api-key-input-row">
+              <input type="password" class="input-text focusable" id="settings-tmdb-key" placeholder="Paste TMDB API key (v3 auth)" tabindex="0" autocomplete="off">
+              <button class="btn btn-test focusable" id="tmdb-test-btn" tabindex="0">Test</button>
+            </div>
+          </div>
+          <div class="api-key-row">
+            <label class="api-key-label">OMDB Key <span class="api-key-status" id="omdb-key-status">○ Not set</span> <a class="api-key-link" href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noopener">Get free key ↗</a></label>
+            <div class="api-key-input-row">
+              <input type="password" class="input-text focusable" id="settings-omdb-key" placeholder="Paste OMDB API key" tabindex="0" autocomplete="off">
+              <button class="btn btn-test focusable" id="omdb-test-btn" tabindex="0">Test</button>
+            </div>
+          </div>
+        </div>
+        <div class="settings-actions">
+          <button class="btn btn-primary focusable" id="settings-save-btn" tabindex="0">Save Config</button>
+          <button class="btn btn-accent focusable" id="settings-scan-btn" tabindex="0">
+            <span class="scan-btn-text">Rescan Library</span>
+          </button>
+        </div>
+        <div class="settings-section server-info">
+          <h3>Connection Info</h3>
+          <p>Access MouVid on your home network at:</p>
+          <code class="lan-url-display" id="lan-url-display">http://localhost:3000</code>
+          <p class="server-help">Type this exact IP and port into your Android TV web browser (like Puffin, Silk, or JioPages) to access your computer's movie library.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen Video Player -->
+  <div class="video-player-container" id="video-player-container">
+    <video class="video-element" id="video-element" preload="auto">
+      Your browser does not support HTML5 video streaming.
+    </video>
+    
+    <!-- Player Controls Overlay -->
+    <div class="player-controls" id="player-controls">
+      <!-- Top Bar: Back & Title -->
+      <div class="controls-top">
+        <button class="control-btn focusable" id="player-back-btn" tabindex="0">
+          <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        </button>
+        <div class="player-title" id="player-title">Movie Title</div>
+      </div>
+
+      <!-- Bottom Bar: Timeline & Control Buttons -->
+      <div class="controls-bottom">
+        <!-- Progress Bar -->
+        <div class="progress-container focusable" id="progress-container" tabindex="0">
+          <div class="progress-bar">
+            <div class="progress-filled" id="progress-filled"></div>
+            <div class="progress-handle" id="progress-handle"></div>
+          </div>
+        </div>
+        
+        <div class="controls-row">
+          <div class="controls-left">
+            <!-- Rewind 10s -->
+            <button class="control-btn focusable" id="player-rewind-btn" tabindex="0">
+              <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+            </button>
+            <!-- Play/Pause -->
+            <button class="control-btn focusable" id="player-play-btn" tabindex="0">
+              <svg class="icon" id="player-play-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+              <svg class="icon hidden" id="player-pause-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            </button>
+            <!-- Fast Forward 10s -->
+            <button class="control-btn focusable" id="player-forward-btn" tabindex="0">
+              <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M11.5 8c-4.65 0-8.58 3.03-9.97 7.22L3.9 16c1.05-3.19 4.06-5.5 7.6-5.5 1.96 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6C16.55 8.99 14.15 8 11.5 8z"/></svg>
+            </button>
+            <!-- Time Info -->
+            <div class="time-display">
+              <span id="current-time">00:00</span> / <span id="duration-time">00:00</span>
+            </div>
+          </div>
+          <div class="controls-right">
+            <!-- Fullscreen -->
+            <button class="control-btn focusable" id="player-fullscreen-btn" tabindex="0">
+              <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cover Art Picker Modal -->
+  <div class="cover-picker-modal" id="cover-picker-modal">
+    <div class="cover-picker-backdrop" id="cover-picker-backdrop"></div>
+    <div class="cover-picker-container">
+      <div class="cover-picker-header">
+        <div>
+          <h2>Choose Cover Art</h2>
+          <p class="cover-picker-subtitle" id="cover-picker-subtitle">Searching...</p>
+        </div>
+        <button class="btn btn-close focusable" id="cover-picker-close" tabindex="0">Close</button>
+      </div>
+      <p class="cover-picker-hint">Navigate with arrow keys · Press <strong>OK</strong> to apply · <strong>Back</strong> to cancel</p>
+      <div class="cover-picker-loading" id="cover-picker-loading">
+        <div class="spinner"></div>
+        <p>Searching for cover art...</p>
+      </div>
+      <div class="cover-picker-grid" id="cover-picker-grid">
+        <!-- Cover options injected by app.js -->
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

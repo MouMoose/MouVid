@@ -1,0 +1,9 @@
+{
+  "mediaPaths": [
+    "E:\\Media",
+    "g:\\media"
+  ],
+  "port": 3000,
+  "omdbApiKey": "317b120",
+  "tmdbApiKey": "d50c1c34054b75cec865f3a426047f60"
+}
