@@ -10,13 +10,29 @@ let isHUDVisible = true;
 let hudTimeout = null;
 let activeGenreFilters = new Set();
 let genreFilterMode = 'or'; // 'or' | 'and'
+let appConfig = { tmdbApiKey: '', omdbApiKey: '' };
+let currentView = 'library';
+let discoverState = {
+  loaded: false,
+  type: 'movie',
+  genres: { movie: [], show: [] },
+  selectedGenres: new Set(),
+  includeAdult: false,
+  page: 1,
+  totalPages: 1,
+  activeItem: null
+};
 
 // DOM Elements
 const navbar = document.getElementById('navbar');
+const heroBanner = document.getElementById('hero-banner');
+const genreBar = document.getElementById('genre-bar');
 const railsContainer = document.getElementById('rails-container');
+const discoverPanel = document.getElementById('discover-panel');
 const detailsModal = document.getElementById('details-modal');
 const settingsPanel = document.getElementById('settings-panel');
 const coverPickerModal = document.getElementById('cover-picker-modal');
+const discoverModal = document.getElementById('discover-modal');
 const videoPlayerContainer = document.getElementById('video-player-container');
 const videoElement = document.getElementById('video-element');
 const statusDot = document.querySelector('.status-dot');
@@ -138,6 +154,7 @@ async function fetchSettings() {
   try {
     const response = await fetch('/api/settings');
     const config = await response.json();
+    appConfig = config;
     document.getElementById('settings-paths-input').value = config.mediaPaths.join(', ');
     setKeyStatus('tmdb', !!config.tmdbApiKey);
     setKeyStatus('omdb', !!config.omdbApiKey);
@@ -577,10 +594,12 @@ function setupInteractivity() {
   
   // Links
   document.getElementById('nav-home').addEventListener('click', () => {
+    switchToLibraryView();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
   
   document.getElementById('nav-movies').addEventListener('click', () => {
+    switchToLibraryView();
     const moviesTitle = Array.from(document.querySelectorAll('.rail-title')).find(el => el.textContent === 'Movies');
     if (moviesTitle) {
       moviesTitle.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -588,10 +607,15 @@ function setupInteractivity() {
   });
 
   document.getElementById('nav-shows').addEventListener('click', () => {
+    switchToLibraryView();
     const showsTitle = Array.from(document.querySelectorAll('.rail-title')).find(el => el.textContent === 'TV Series');
     if (showsTitle) {
       showsTitle.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+  });
+
+  document.getElementById('nav-discover').addEventListener('click', () => {
+    switchToDiscoverView();
   });
 
   document.getElementById('nav-settings-btn').addEventListener('click', () => toggleSettings(true));
@@ -610,6 +634,11 @@ function setupInteractivity() {
   // Cover Art Picker close
   document.getElementById('cover-picker-close').addEventListener('click', closeCoverArtPicker);
   document.getElementById('cover-picker-backdrop').addEventListener('click', closeCoverArtPicker);
+
+  // Discover modal close
+  document.getElementById('discover-modal-close').addEventListener('click', closeDiscoverModal);
+  document.getElementById('discover-modal-backdrop').addEventListener('click', closeDiscoverModal);
+  document.getElementById('discover-watch-trailer').addEventListener('click', watchDiscoverTrailer);
 
   // Refresh Library button
   document.getElementById('nav-refresh-btn').addEventListener('click', async () => {
@@ -647,6 +676,7 @@ function setupInteractivity() {
   const searchBox = searchInput ? searchInput.closest('.search-box') : null;
 
   searchInput.addEventListener('input', () => {
+    if (currentView !== 'library') return;
     const term = searchInput.value.toLowerCase().trim();
     if (searchBox) searchBox.classList.toggle('has-value', term.length > 0);
     filterLibraryCards(term);
@@ -659,6 +689,341 @@ function setupInteractivity() {
       filterLibraryCards('');
       searchInput.focus();
     });
+  }
+
+  // Discover controls
+  document.getElementById('discover-type').addEventListener('change', () => {
+    discoverState.type = document.getElementById('discover-type').value;
+    discoverState.selectedGenres.clear();
+    renderDiscoverGenres();
+  });
+
+  document.getElementById('discover-apply').addEventListener('click', () => {
+    runDiscoverSearch(false);
+  });
+
+  document.getElementById('discover-adult-off').addEventListener('click', () => {
+    setDiscoverAdultToggle(false);
+  });
+
+  document.getElementById('discover-adult-on').addEventListener('click', () => {
+    setDiscoverAdultToggle(true);
+  });
+
+  document.getElementById('discover-reset').addEventListener('click', () => {
+    resetDiscoverFilters();
+  });
+
+  document.getElementById('discover-load-more').addEventListener('click', () => {
+    if (discoverState.page < discoverState.totalPages) {
+      discoverState.page += 1;
+      runDiscoverSearch(true);
+    }
+  });
+
+  setDiscoverAdultToggle(false);
+}
+
+function setDiscoverAdultToggle(enabled) {
+  discoverState.includeAdult = !!enabled;
+  document.getElementById('discover-adult-off').classList.toggle('active', !enabled);
+  document.getElementById('discover-adult-on').classList.toggle('active', enabled);
+}
+
+function setActiveNav(activeId) {
+  ['nav-home', 'nav-movies', 'nav-shows', 'nav-discover'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('active', id === activeId);
+  });
+}
+
+function switchToLibraryView() {
+  currentView = 'library';
+  heroBanner.classList.remove('hidden');
+  genreBar.classList.remove('hidden');
+  railsContainer.classList.remove('hidden');
+  discoverPanel.classList.add('hidden');
+  closeDiscoverModal();
+  setActiveNav('nav-home');
+}
+
+async function switchToDiscoverView() {
+  currentView = 'discover';
+  heroBanner.classList.add('hidden');
+  genreBar.classList.add('hidden');
+  railsContainer.classList.add('hidden');
+  discoverPanel.classList.remove('hidden');
+  setActiveNav('nav-discover');
+
+  if (!discoverState.loaded) {
+    await loadDiscoverGenres();
+    discoverState.loaded = true;
+  }
+
+  if (document.getElementById('discover-grid').children.length === 0) {
+    await runDiscoverSearch(false);
+  }
+
+  setTimeout(() => setFocus(document.getElementById('discover-type')), 80);
+}
+
+async function loadDiscoverGenres() {
+  const status = document.getElementById('discover-status');
+  status.textContent = 'Loading genre lists...';
+
+  try {
+    const res = await fetch('/api/discover/genres');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to load discover genres');
+
+    discoverState.genres.movie = data.movies || [];
+    discoverState.genres.show = data.shows || [];
+    renderDiscoverGenres();
+    status.textContent = 'Set filters and press Apply.';
+  } catch (err) {
+    status.textContent = err.message || 'Discover is unavailable. Add a TMDB key in Settings.';
+  }
+}
+
+function renderDiscoverGenres() {
+  const container = document.getElementById('discover-genres');
+  container.innerHTML = '';
+
+  const genres = discoverState.type === 'movie' ? discoverState.genres.movie : discoverState.genres.show;
+  genres.forEach((genre) => {
+    const pill = document.createElement('button');
+    pill.className = `genre-pill focusable${discoverState.selectedGenres.has(genre.id) ? ' active' : ''}`;
+    pill.setAttribute('tabindex', '0');
+    pill.textContent = genre.name;
+    pill.onclick = () => {
+      if (discoverState.selectedGenres.has(genre.id)) {
+        discoverState.selectedGenres.delete(genre.id);
+        pill.classList.remove('active');
+      } else {
+        discoverState.selectedGenres.add(genre.id);
+        pill.classList.add('active');
+      }
+    };
+    container.appendChild(pill);
+  });
+}
+
+function getDiscoverSort() {
+  const uiSort = document.getElementById('discover-sort').value;
+  if (uiSort === 'popularity.desc' || uiSort === 'vote_average.desc') return uiSort;
+  if (uiSort === 'date.asc') return discoverState.type === 'movie' ? 'primary_release_date.asc' : 'first_air_date.asc';
+  return discoverState.type === 'movie' ? 'primary_release_date.desc' : 'first_air_date.desc';
+}
+
+function normalizeTitle(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function getReleaseYearFromDate(dateText) {
+  if (!dateText) return '';
+  return String(dateText).slice(0, 4);
+}
+
+function buildLibraryLookup() {
+  const movieKeys = new Set();
+  const showKeys = new Set();
+
+  (libraryData.movies || []).forEach((movie) => {
+    const t = normalizeTitle(movie.title);
+    const y = movie.year ? String(movie.year) : '';
+    if (t && y) movieKeys.add(`${t}|${y}`);
+    if (t) movieKeys.add(`${t}|`);
+  });
+
+  (libraryData.shows || []).forEach((show) => {
+    const t = normalizeTitle(show.title);
+    if (t) showKeys.add(t);
+  });
+
+  return { movieKeys, showKeys };
+}
+
+function resetDiscoverFilters() {
+  discoverState.type = 'movie';
+  discoverState.selectedGenres.clear();
+  discoverState.page = 1;
+  discoverState.totalPages = 1;
+
+  document.getElementById('discover-type').value = 'movie';
+  document.getElementById('discover-sort').value = 'popularity.desc';
+  document.getElementById('discover-from-year').value = '';
+  document.getElementById('discover-to-year').value = '';
+  setDiscoverAdultToggle(false);
+  document.getElementById('discover-grid').innerHTML = '';
+  document.getElementById('discover-load-more').classList.add('hidden');
+
+  renderDiscoverGenres();
+  document.getElementById('discover-status').textContent = 'Filters reset. Press Apply.';
+}
+
+async function runDiscoverSearch(append) {
+  const status = document.getElementById('discover-status');
+  const grid = document.getElementById('discover-grid');
+  const loadMoreBtn = document.getElementById('discover-load-more');
+
+  const fromYear = document.getElementById('discover-from-year').value.trim();
+  const toYear = document.getElementById('discover-to-year').value.trim();
+  const includeAdult = discoverState.includeAdult;
+  const params = new URLSearchParams({
+    page: String(discoverState.page),
+    sort: getDiscoverSort()
+  });
+
+  if (discoverState.selectedGenres.size > 0) {
+    params.set('genre', Array.from(discoverState.selectedGenres).join(','));
+  }
+  if (fromYear) params.set('fromYear', fromYear);
+  if (toYear) params.set('toYear', toYear);
+  if (includeAdult) params.set('includeAdult', 'true');
+
+  const endpoint = discoverState.type === 'movie' ? '/api/discover/movies' : '/api/discover/shows';
+
+  if (!append) {
+    discoverState.page = 1;
+    params.set('page', '1');
+    grid.innerHTML = '';
+  }
+
+  status.textContent = `Loading ${discoverState.type === 'movie' ? 'movies' : 'shows'}...`;
+
+  try {
+    const res = await fetch(`${endpoint}?${params.toString()}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Discover request failed');
+
+    discoverState.totalPages = data.totalPages || 1;
+    renderDiscoverResults(data.results || [], append);
+
+    const count = (data.results || []).length;
+    status.textContent = count > 0
+      ? `Showing page ${data.page} of ${data.totalPages} (${data.totalResults} total).`
+      : 'No results matched these filters.';
+
+    if ((data.page || 1) < (data.totalPages || 1)) loadMoreBtn.classList.remove('hidden');
+    else loadMoreBtn.classList.add('hidden');
+  } catch (err) {
+    status.textContent = err.message || 'Discover failed. Check TMDB settings.';
+    loadMoreBtn.classList.add('hidden');
+  }
+}
+
+function renderDiscoverResults(items, append) {
+  const grid = document.getElementById('discover-grid');
+  const lookup = buildLibraryLookup();
+  if (!append) grid.innerHTML = '';
+
+  items.forEach((item) => {
+    const card = document.createElement('div');
+    card.className = 'discover-card focusable';
+
+    const normalizedTitle = normalizeTitle(item.title);
+    const releaseYear = getReleaseYearFromDate(item.releaseDate);
+    const inLibrary = item.type === 'movie'
+      ? (lookup.movieKeys.has(`${normalizedTitle}|${releaseYear}`) || lookup.movieKeys.has(`${normalizedTitle}|`))
+      : lookup.showKeys.has(normalizedTitle);
+    if (inLibrary) card.classList.add('in-library');
+
+    card.setAttribute('tabindex', '0');
+    card.onclick = () => openDiscoverModal(item);
+
+    const year = item.releaseDate ? item.releaseDate.slice(0, 4) : 'Unknown';
+    const rating = item.rating ? Number(item.rating).toFixed(1) : 'N/A';
+
+    card.innerHTML = `
+      <img class="discover-card-poster" src="${item.poster}" alt="${escapeHtml(item.title)} poster">
+      <div class="discover-card-body">
+        <div class="discover-card-title">${escapeHtml(item.title)}</div>
+        <div class="discover-card-meta">${escapeHtml(year)} • Rating ${escapeHtml(rating)}</div>
+        <div class="discover-card-overview">${escapeHtml(item.overview || 'No synopsis available.')}</div>
+      </div>
+    `;
+
+    grid.appendChild(card);
+  });
+
+  if (!append) {
+    const firstCard = grid.querySelector('.discover-card');
+    if (firstCard) setTimeout(() => setFocus(firstCard), 80);
+  }
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function openDiscoverModal(item) {
+  discoverState.activeItem = item;
+  lastFocusedMediaCard = document.activeElement;
+
+  document.getElementById('discover-modal-title').textContent = item.title;
+  document.getElementById('discover-modal-poster').src = item.poster;
+  document.getElementById('discover-modal-overview').textContent = item.overview || 'No synopsis available.';
+
+  const year = item.releaseDate ? item.releaseDate.slice(0, 4) : 'Unknown';
+  const mediaType = item.type === 'movie' ? 'MOVIE' : 'TV SERIES';
+  const rating = item.rating ? Number(item.rating).toFixed(1) : 'N/A';
+  document.getElementById('discover-modal-meta').textContent = `${year} • ${mediaType} • Rating ${rating}`;
+
+  const genres = document.getElementById('discover-modal-genres');
+  genres.innerHTML = '';
+  (item.genres || []).forEach((g) => {
+    const pill = document.createElement('span');
+    pill.className = 'modal-genre-pill';
+    pill.textContent = g;
+    genres.appendChild(pill);
+  });
+
+  discoverModal.classList.add('active');
+  setTimeout(() => setFocus(document.getElementById('discover-watch-trailer')), 80);
+}
+
+function closeDiscoverModal() {
+  discoverModal.classList.remove('active');
+  discoverState.activeItem = null;
+  if (lastFocusedMediaCard && currentView === 'discover') {
+    setFocus(lastFocusedMediaCard);
+  }
+}
+
+async function watchDiscoverTrailer() {
+  if (!discoverState.activeItem) return;
+
+  const item = discoverState.activeItem;
+  const btn = document.getElementById('discover-watch-trailer');
+  const originalText = btn.textContent;
+  btn.textContent = 'Loading trailer...';
+  btn.disabled = true;
+
+  try {
+    const url = `/api/discover/trailer?tmdbId=${encodeURIComponent(item.tmdbId)}&type=${encodeURIComponent(item.type)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Trailer lookup failed');
+
+    if (data.trailerUrl) {
+      window.open(data.trailerUrl, '_blank', 'noopener');
+    } else {
+      alert('No trailer was found for this title.');
+    }
+  } catch (err) {
+    alert(err.message || 'Could not fetch trailer.');
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
   }
 }
 
@@ -796,19 +1161,22 @@ function getFocusableElements() {
     const detailsActive = detailsModal.classList.contains('active');
     const settingsActive = settingsPanel.classList.contains('active');
     const pickerActive = coverPickerModal.classList.contains('active');
+    const discoverModalActive = discoverModal.classList.contains('active');
     const playerActive = videoPlayerContainer.classList.contains('active');
 
     const inDetails = el.closest('#details-modal');
     const inSettings = el.closest('#settings-panel');
     const inPicker = el.closest('#cover-picker-modal');
+    const inDiscoverModal = el.closest('#discover-modal');
     const inPlayer = el.closest('#video-player-container');
 
     if (playerActive) return !!inPlayer;
     if (settingsActive) return !!inSettings;
     if (pickerActive) return !!inPicker;
+    if (discoverModalActive) return !!inDiscoverModal;
     if (detailsActive) return !!inDetails;
 
-    return !inDetails && !inSettings && !inPicker && !inPlayer;
+    return !inDetails && !inSettings && !inPicker && !inDiscoverModal && !inPlayer;
   });
 }
 
@@ -963,6 +1331,9 @@ function setupSpatialNavigation() {
         if (coverPickerModal.classList.contains('active')) {
           e.preventDefault();
           closeCoverArtPicker();
+        } else if (discoverModal.classList.contains('active')) {
+          e.preventDefault();
+          closeDiscoverModal();
         } else if (isPlayerActive) {
           e.preventDefault();
           stopVideo();
@@ -972,6 +1343,9 @@ function setupSpatialNavigation() {
         } else if (detailsModal.classList.contains('active')) {
           e.preventDefault();
           closeDetailsModal();
+        } else if (currentView === 'discover') {
+          e.preventDefault();
+          switchToLibraryView();
         } else {
           // Main menu — confirm before exiting
           if (confirm('Exit MouVid?')) window.close();

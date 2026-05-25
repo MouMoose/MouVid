@@ -138,6 +138,62 @@ const TMDB_TV_GENRES = {
   10766:'Soap', 10767:'Talk', 10768:'War & Politics', 37:'Western'
 };
 
+function ensureTmdbConfigured(res) {
+  if (!config.tmdbApiKey) {
+    res.status(400).json({ error: 'TMDB API key is not configured. Add it in Settings.' });
+    return false;
+  }
+  return true;
+}
+
+function parseYear(value) {
+  if (!value) return null;
+  const year = parseInt(value, 10);
+  if (Number.isNaN(year) || year < 1900 || year > 2100) return null;
+  return year;
+}
+
+function sanitizeDiscoverPage(value) {
+  const page = parseInt(value, 10);
+  if (Number.isNaN(page) || page < 1) return 1;
+  return Math.min(page, 500);
+}
+
+function parseBooleanFlag(value) {
+  if (typeof value !== 'string') return false;
+  const v = value.trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+}
+
+function normalizeDiscoverItems(results, type) {
+  const genreMap = type === 'movie' ? TMDB_MOVIE_GENRES : TMDB_TV_GENRES;
+  return (results || []).map((item) => ({
+    tmdbId: item.id,
+    type,
+    title: type === 'movie' ? item.title : item.name,
+    overview: item.overview || '',
+    releaseDate: type === 'movie' ? (item.release_date || '') : (item.first_air_date || ''),
+    rating: typeof item.vote_average === 'number' ? item.vote_average : null,
+    poster: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : '/assets/default-poster.jpg',
+    genres: (item.genre_ids || []).map(id => genreMap[id]).filter(Boolean)
+  }));
+}
+
+function looksExplicitByText(item) {
+  const text = `${item?.title || ''} ${item?.name || ''} ${item?.overview || ''}`.toLowerCase();
+  const explicitTerms = [
+    'nymphomaniac', 'erotic', 'sex', 'sexual', 'porn', 'pornographic',
+    'xxx', 'hardcore', 'softcore', 'bdsm', 'fetish', 'orgy', 'nude', 'nudity'
+  ];
+  return explicitTerms.some(term => text.includes(term));
+}
+
+function shouldHideForSafeDiscover(item, includeAdult) {
+  if (includeAdult) return false;
+  if (item && item.adult === true) return true;
+  return looksExplicitByText(item);
+}
+
 // Fetch movie poster URL + genres from OMDB → TMDB
 async function fetchMovieData(title, year) {
   const cleanTitle = title.trim();
@@ -712,6 +768,138 @@ app.get('/api/test-key', async (req, res) => {
   }
 
   res.status(400).json({ error: 'Unknown provider' });
+});
+
+// API: Discover metadata for movies and TV
+app.get('/api/discover/genres', (req, res) => {
+  if (!ensureTmdbConfigured(res)) return;
+
+  const movies = Object.entries(TMDB_MOVIE_GENRES)
+    .map(([id, name]) => ({ id: Number(id), name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const shows = Object.entries(TMDB_TV_GENRES)
+    .map(([id, name]) => ({ id: Number(id), name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  res.json({ movies, shows });
+});
+
+app.get('/api/discover/movies', async (req, res) => {
+  if (!ensureTmdbConfigured(res)) return;
+
+  const allowedSort = new Set(['popularity.desc', 'vote_average.desc', 'primary_release_date.desc', 'primary_release_date.asc']);
+  const genre = req.query.genre ? String(req.query.genre) : '';
+  const fromYear = parseYear(req.query.fromYear);
+  const toYear = parseYear(req.query.toYear);
+  const sort = allowedSort.has(req.query.sort) ? req.query.sort : 'popularity.desc';
+  const page = sanitizeDiscoverPage(req.query.page);
+  const includeAdult = parseBooleanFlag(req.query.includeAdult);
+
+  if (fromYear && toYear && fromYear > toYear) {
+    return res.status(400).json({ error: 'fromYear cannot be greater than toYear' });
+  }
+
+  const params = new URLSearchParams({
+    api_key: config.tmdbApiKey,
+    include_adult: includeAdult ? 'true' : 'false',
+    include_video: 'false',
+    language: 'en-US',
+    sort_by: sort,
+    page: String(page)
+  });
+
+  if (genre) params.set('with_genres', genre);
+  if (fromYear) params.set('primary_release_date.gte', `${fromYear}-01-01`);
+  if (toYear) params.set('primary_release_date.lte', `${toYear}-12-31`);
+
+  const data = await httpGetJson(`https://api.themoviedb.org/3/discover/movie?${params.toString()}`);
+  if (!data || !Array.isArray(data.results)) {
+    return res.status(502).json({ error: 'Failed to fetch discover data from TMDB' });
+  }
+
+  const safeResults = data.results.filter(item => !shouldHideForSafeDiscover(item, includeAdult));
+
+  res.json({
+    page: data.page || page,
+    totalPages: data.total_pages || 0,
+    totalResults: data.total_results || 0,
+    results: normalizeDiscoverItems(safeResults, 'movie')
+  });
+});
+
+app.get('/api/discover/shows', async (req, res) => {
+  if (!ensureTmdbConfigured(res)) return;
+
+  const allowedSort = new Set(['popularity.desc', 'vote_average.desc', 'first_air_date.desc', 'first_air_date.asc']);
+  const genre = req.query.genre ? String(req.query.genre) : '';
+  const fromYear = parseYear(req.query.fromYear);
+  const toYear = parseYear(req.query.toYear);
+  const sort = allowedSort.has(req.query.sort) ? req.query.sort : 'popularity.desc';
+  const page = sanitizeDiscoverPage(req.query.page);
+  const includeAdult = parseBooleanFlag(req.query.includeAdult);
+
+  if (fromYear && toYear && fromYear > toYear) {
+    return res.status(400).json({ error: 'fromYear cannot be greater than toYear' });
+  }
+
+  const params = new URLSearchParams({
+    api_key: config.tmdbApiKey,
+    include_adult: includeAdult ? 'true' : 'false',
+    language: 'en-US',
+    sort_by: sort,
+    page: String(page)
+  });
+
+  if (genre) params.set('with_genres', genre);
+  if (fromYear) params.set('first_air_date.gte', `${fromYear}-01-01`);
+  if (toYear) params.set('first_air_date.lte', `${toYear}-12-31`);
+
+  const data = await httpGetJson(`https://api.themoviedb.org/3/discover/tv?${params.toString()}`);
+  if (!data || !Array.isArray(data.results)) {
+    return res.status(502).json({ error: 'Failed to fetch discover data from TMDB' });
+  }
+
+  const safeResults = data.results.filter(item => !shouldHideForSafeDiscover(item, includeAdult));
+
+  res.json({
+    page: data.page || page,
+    totalPages: data.total_pages || 0,
+    totalResults: data.total_results || 0,
+    results: normalizeDiscoverItems(safeResults, 'show')
+  });
+});
+
+app.get('/api/discover/trailer', async (req, res) => {
+  if (!ensureTmdbConfigured(res)) return;
+
+  const tmdbId = parseInt(req.query.tmdbId, 10);
+  const type = req.query.type;
+  if (Number.isNaN(tmdbId) || tmdbId <= 0) {
+    return res.status(400).json({ error: 'tmdbId must be a positive integer' });
+  }
+  if (type !== 'movie' && type !== 'show') {
+    return res.status(400).json({ error: 'type must be movie or show' });
+  }
+
+  const endpoint = type === 'movie' ? 'movie' : 'tv';
+  const data = await httpGetJson(`https://api.themoviedb.org/3/${endpoint}/${tmdbId}/videos?api_key=${config.tmdbApiKey}&language=en-US`);
+  if (!data || !Array.isArray(data.results)) {
+    return res.status(502).json({ error: 'Failed to fetch trailer data from TMDB' });
+  }
+
+  const candidates = data.results.filter(v => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser') && v.key);
+  const best = candidates.find(v => v.type === 'Trailer' && v.official) ||
+               candidates.find(v => v.type === 'Trailer') ||
+               candidates[0] ||
+               null;
+
+  if (!best) return res.json({ trailerUrl: null, trailerName: null });
+
+  res.json({
+    trailerUrl: `https://www.youtube.com/watch?v=${best.key}`,
+    trailerName: best.name || 'Trailer'
+  });
 });
 
 // API: Search for alternative cover art candidates

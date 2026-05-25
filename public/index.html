@@ -19,6 +19,7 @@
         <div class="nav-link focusable" id="nav-home" tabindex="0">Home</div>
         <div class="nav-link focusable" id="nav-movies" tabindex="0">Movies</div>
         <div class="nav-link focusable" id="nav-shows" tabindex="0">TV Shows</div>
+        <div class="nav-link focusable" id="nav-discover" tabindex="0">Discover</div>
         <div class="nav-link focusable" id="nav-settings-btn" tabindex="0">Settings</div>
       </nav>
     </div>
@@ -77,6 +78,67 @@
       <div class="loading-state" id="loading-state">
         <div class="spinner"></div>
         <p>Scanning E:\Media library...</p>
+      </div>
+    </section>
+
+    <!-- Discover View -->
+    <section class="discover-panel hidden" id="discover-panel">
+      <div class="discover-header">
+        <div>
+          <h2>Discover</h2>
+          <p>Browse movies and TV series by genre and release date.</p>
+        </div>
+      </div>
+
+      <div class="discover-controls">
+        <div class="discover-control-group">
+          <label for="discover-type">Type</label>
+          <select id="discover-type" class="input-text focusable" tabindex="0">
+            <option value="movie">Movies</option>
+            <option value="show">TV Series</option>
+          </select>
+        </div>
+
+        <div class="discover-control-group">
+          <label for="discover-sort">Sort</label>
+          <select id="discover-sort" class="input-text focusable" tabindex="0">
+            <option value="popularity.desc">Popularity</option>
+            <option value="vote_average.desc">Rating</option>
+            <option value="date.desc">Newest</option>
+            <option value="date.asc">Oldest</option>
+          </select>
+        </div>
+
+        <div class="discover-control-group">
+          <label for="discover-from-year">From Year</label>
+          <input type="number" id="discover-from-year" class="input-text focusable" placeholder="1990" min="1900" max="2100" tabindex="0">
+        </div>
+
+        <div class="discover-control-group">
+          <label for="discover-to-year">To Year</label>
+          <input type="number" id="discover-to-year" class="input-text focusable" placeholder="2026" min="1900" max="2100" tabindex="0">
+        </div>
+
+        <div class="discover-control-group discover-toggle-group">
+          <label>Explicit content</label>
+          <div class="discover-pill-toggle" id="discover-adult-toggle" role="group" aria-label="Explicit content selector">
+            <button type="button" class="discover-pill-btn focusable active" id="discover-adult-off" tabindex="0">Off</button>
+            <button type="button" class="discover-pill-btn focusable" id="discover-adult-on" tabindex="0">On</button>
+          </div>
+        </div>
+
+        <div class="discover-control-group discover-actions">
+          <button class="btn btn-primary focusable" id="discover-apply" tabindex="0">Apply</button>
+          <button class="btn btn-accent focusable" id="discover-reset" tabindex="0">Reset</button>
+        </div>
+      </div>
+
+      <div class="discover-genres" id="discover-genres"></div>
+      <div class="discover-status" id="discover-status">Set filters and press Apply.</div>
+      <div class="discover-grid" id="discover-grid"></div>
+
+      <div class="discover-load-more-wrap">
+        <button class="btn btn-accent focusable hidden" id="discover-load-more" tabindex="0">Load More</button>
       </div>
     </section>
   </main>
@@ -279,6 +341,27 @@
       </div>
       <div class="cover-picker-grid" id="cover-picker-grid">
         <!-- Cover options injected by app.js -->
+      </div>
+    </div>
+  </div>
+
+  <div class="discover-modal" id="discover-modal">
+    <div class="discover-modal-backdrop" id="discover-modal-backdrop"></div>
+    <div class="discover-modal-container">
+      <button class="modal-close focusable" id="discover-modal-close" tabindex="0">
+        <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+      <div class="discover-modal-content">
+        <img class="discover-modal-poster" id="discover-modal-poster" src="" alt="Discover poster">
+        <div class="discover-modal-body">
+          <h3 id="discover-modal-title">Title</h3>
+          <p class="discover-modal-meta" id="discover-modal-meta"></p>
+          <p class="discover-modal-overview" id="discover-modal-overview"></p>
+          <div class="modal-genres" id="discover-modal-genres"></div>
+          <div class="discover-modal-actions">
+            <button class="btn btn-play focusable" id="discover-watch-trailer" tabindex="0">Watch Trailer</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

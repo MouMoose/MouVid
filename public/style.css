@@ -1469,3 +1469,281 @@ h1, h2, h3, .brand {
   text-align: center;
   color: #888888;
 }
+
+/* ==========================================
+   DISCOVER FEATURE
+   ========================================== */
+
+.discover-panel {
+  padding: 95px 4% 40px;
+  position: relative;
+  z-index: 4;
+}
+
+.discover-header h2 {
+  font-size: 2rem;
+  font-family: 'Outfit', sans-serif;
+  margin-bottom: 4px;
+}
+
+.discover-header p {
+  color: #aaaaaa;
+  font-size: 0.95rem;
+}
+
+.discover-controls {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.discover-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.discover-control-group label {
+  color: #9f9f9f;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.discover-toggle-group {
+  justify-content: flex-end;
+}
+
+.discover-pill-toggle {
+  display: flex;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 18px;
+  overflow: hidden;
+  width: fit-content;
+}
+
+.discover-pill-btn {
+  border: none;
+  background: transparent;
+  color: #b9b9b9;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.discover-pill-btn.active {
+  background-color: #e50914;
+  color: #ffffff;
+}
+
+.discover-pill-btn.focusable.focused {
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+.discover-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.discover-actions .btn {
+  padding: 10px 16px;
+  font-size: 0.9rem;
+}
+
+.discover-genres {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.discover-status {
+  margin-top: 14px;
+  color: #aaaaaa;
+  font-size: 0.9rem;
+}
+
+.discover-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 16px;
+}
+
+.discover-card {
+  background-color: #222222;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 355px;
+  transition: all 0.2s ease;
+}
+
+.discover-card-poster {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  background-color: #111111;
+}
+
+.discover-card-body {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1;
+}
+
+.discover-card-title {
+  font-size: 0.94rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #ffffff;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.discover-card-meta {
+  color: #9f9f9f;
+  font-size: 0.78rem;
+}
+
+.discover-card-overview {
+  color: #bbbbbb;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 3.2em;
+}
+
+.discover-card .btn {
+  margin-top: auto;
+  width: 100%;
+  justify-content: center;
+  padding: 9px 10px;
+  font-size: 0.86rem;
+}
+
+.discover-card.focusable.focused {
+  transform: translateY(-4px) scale(1.02);
+  border-color: #e50914;
+  box-shadow: 0 0 20px rgba(229, 9, 20, 0.5);
+}
+
+.discover-card.in-library {
+  border: 2px solid #31ff6a;
+  box-shadow: 0 0 16px rgba(49, 255, 106, 0.45);
+}
+
+.discover-card.in-library.focusable.focused {
+  border-color: #31ff6a;
+  box-shadow: 0 0 22px rgba(49, 255, 106, 0.75);
+}
+
+.discover-load-more-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.discover-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 260;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.discover-modal.active {
+  display: flex;
+}
+
+.discover-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(10px);
+}
+
+.discover-modal-container {
+  position: relative;
+  width: min(900px, 92vw);
+  max-height: 84vh;
+  background-color: #191919;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  z-index: 2;
+}
+
+.discover-modal-content {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 380px;
+}
+
+.discover-modal-poster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background-color: #111111;
+}
+
+.discover-modal-body {
+  padding: 30px;
+  overflow-y: auto;
+}
+
+.discover-modal-body h3 {
+  font-size: 1.8rem;
+  margin-bottom: 10px;
+}
+
+.discover-modal-meta {
+  color: #a5a5a5;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+
+.discover-modal-overview {
+  color: #d0d0d0;
+  font-size: 1rem;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.discover-modal-actions {
+  margin-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .discover-modal-content {
+    grid-template-columns: 1fr;
+  }
+
+  .discover-modal-poster {
+    max-height: 300px;
+  }
+
+  .discover-actions {
+    flex-direction: column;
+  }
+}
