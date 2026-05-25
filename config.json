@@ -1,6 +1,7 @@
 {
   "mediaPaths": [
-    "d:\\media"
+    "e:\\media",
+    "g:\\media"
   ],
   "port": 3000,
   "omdbApiKey": "317b120",

@@ -870,6 +870,40 @@ app.get('/api/discover/shows', async (req, res) => {
   });
 });
 
+app.get('/api/discover/search', async (req, res) => {
+  if (!ensureTmdbConfigured(res)) return;
+
+  const query = String(req.query.query || '').trim();
+  if (!query) return res.status(400).json({ error: 'query is required' });
+
+  const type = req.query.type === 'show' ? 'show' : 'movie';
+  const page = sanitizeDiscoverPage(req.query.page);
+  const includeAdult = parseBooleanFlag(req.query.includeAdult);
+
+  const endpoint = type === 'movie' ? 'search/movie' : 'search/tv';
+  const params = new URLSearchParams({
+    api_key: config.tmdbApiKey,
+    query,
+    language: 'en-US',
+    page: String(page),
+    include_adult: includeAdult ? 'true' : 'false'
+  });
+
+  const data = await httpGetJson(`https://api.themoviedb.org/3/${endpoint}?${params.toString()}`);
+  if (!data || !Array.isArray(data.results)) {
+    return res.status(502).json({ error: 'Failed to fetch search results from TMDB' });
+  }
+
+  const safeResults = data.results.filter(item => !shouldHideForSafeDiscover(item, includeAdult));
+
+  res.json({
+    page: data.page || page,
+    totalPages: data.total_pages || 0,
+    totalResults: data.total_results || 0,
+    results: normalizeDiscoverItems(safeResults, type)
+  });
+});
+
 app.get('/api/discover/trailer', async (req, res) => {
   if (!ensureTmdbConfigured(res)) return;
 

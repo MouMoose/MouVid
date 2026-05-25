@@ -20,8 +20,10 @@ let discoverState = {
   includeAdult: false,
   page: 1,
   totalPages: 1,
-  activeItem: null
+  activeItem: null,
+  searchQuery: ''
 };
+let _discoverSearchDebounce = null;
 
 // DOM Elements
 const navbar = document.getElementById('navbar');
@@ -699,7 +701,28 @@ function setupInteractivity() {
   });
 
   document.getElementById('discover-apply').addEventListener('click', () => {
+    discoverState.searchQuery = '';
+    document.getElementById('discover-name-input').value = '';
     runDiscoverSearch(false);
+  });
+
+  const discoverNameInput = document.getElementById('discover-name-input');
+  discoverNameInput.addEventListener('input', () => {
+    clearTimeout(_discoverSearchDebounce);
+    _discoverSearchDebounce = setTimeout(() => {
+      discoverState.searchQuery = discoverNameInput.value.trim();
+      discoverState.page = 1;
+      if (discoverState.searchQuery) runDiscoverNameSearch(false);
+      else runDiscoverSearch(false);
+    }, 400);
+  });
+
+  document.getElementById('discover-name-clear').addEventListener('click', () => {
+    discoverNameInput.value = '';
+    discoverState.searchQuery = '';
+    discoverState.page = 1;
+    runDiscoverSearch(false);
+    discoverNameInput.focus();
   });
 
   document.getElementById('discover-adult-off').addEventListener('click', () => {
@@ -717,7 +740,8 @@ function setupInteractivity() {
   document.getElementById('discover-load-more').addEventListener('click', () => {
     if (discoverState.page < discoverState.totalPages) {
       discoverState.page += 1;
-      runDiscoverSearch(true);
+      if (discoverState.searchQuery) runDiscoverNameSearch(true);
+      else runDiscoverSearch(true);
     }
   });
 
@@ -828,23 +852,40 @@ function getReleaseYearFromDate(dateText) {
   return String(dateText).slice(0, 4);
 }
 
+function titleWords(normalized) {
+  return new Set(normalized.split(' ').filter(w => w.length >= 2));
+}
+
+function libraryWordsInDiscover(libraryWords, discoverWords) {
+  // true only if every word in the library title appears in the discover title
+  if (libraryWords.size === 0) return false;
+  for (const w of libraryWords) {
+    if (!discoverWords.has(w)) return false;
+  }
+  return true;
+}
+
 function buildLibraryLookup() {
   const movieKeys = new Set();
   const showKeys = new Set();
+  const movieWordSets = [];
+  const showWordSets = [];
 
   (libraryData.movies || []).forEach((movie) => {
     const t = normalizeTitle(movie.title);
     const y = movie.year ? String(movie.year) : '';
     if (t && y) movieKeys.add(`${t}|${y}`);
     if (t) movieKeys.add(`${t}|`);
+    if (t) movieWordSets.push(titleWords(t));
   });
 
   (libraryData.shows || []).forEach((show) => {
     const t = normalizeTitle(show.title);
     if (t) showKeys.add(t);
+    if (t) showWordSets.push(titleWords(t));
   });
 
-  return { movieKeys, showKeys };
+  return { movieKeys, showKeys, movieWordSets, showWordSets };
 }
 
 function resetDiscoverFilters() {
@@ -858,11 +899,56 @@ function resetDiscoverFilters() {
   document.getElementById('discover-from-year').value = '';
   document.getElementById('discover-to-year').value = '';
   setDiscoverAdultToggle(false);
+  document.getElementById('discover-name-input').value = '';
+  discoverState.searchQuery = '';
   document.getElementById('discover-grid').innerHTML = '';
   document.getElementById('discover-load-more').classList.add('hidden');
 
   renderDiscoverGenres();
   document.getElementById('discover-status').textContent = 'Filters reset. Press Apply.';
+}
+
+async function runDiscoverNameSearch(append) {
+  const status = document.getElementById('discover-status');
+  const grid = document.getElementById('discover-grid');
+  const loadMoreBtn = document.getElementById('discover-load-more');
+  const query = discoverState.searchQuery;
+
+  if (!query) return;
+
+  if (!append) {
+    discoverState.page = 1;
+    grid.innerHTML = '';
+  }
+
+  status.textContent = `Searching for "${query}"…`;
+
+  const params = new URLSearchParams({
+    query,
+    type: discoverState.type,
+    page: String(discoverState.page),
+    includeAdult: discoverState.includeAdult ? 'true' : 'false'
+  });
+
+  try {
+    const res = await fetch(`/api/discover/search?${params.toString()}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Search failed');
+
+    discoverState.totalPages = data.totalPages || 1;
+    renderDiscoverResults(data.results || [], append);
+
+    const count = (data.results || []).length;
+    status.textContent = count > 0
+      ? `Search: page ${data.page} of ${data.totalPages} (${data.totalResults} results).`
+      : `No results found for "${query}".`;
+
+    if ((data.page || 1) < (data.totalPages || 1)) loadMoreBtn.classList.remove('hidden');
+    else loadMoreBtn.classList.add('hidden');
+  } catch (err) {
+    status.textContent = err.message || 'Search failed. Check TMDB settings.';
+    loadMoreBtn.classList.add('hidden');
+  }
 }
 
 async function runDiscoverSearch(append) {
@@ -927,9 +1013,10 @@ function renderDiscoverResults(items, append) {
 
     const normalizedTitle = normalizeTitle(item.title);
     const releaseYear = getReleaseYearFromDate(item.releaseDate);
+    const discoverWords = titleWords(normalizedTitle);
     const inLibrary = item.type === 'movie'
-      ? (lookup.movieKeys.has(`${normalizedTitle}|${releaseYear}`) || lookup.movieKeys.has(`${normalizedTitle}|`))
-      : lookup.showKeys.has(normalizedTitle);
+      ? (lookup.movieKeys.has(`${normalizedTitle}|${releaseYear}`) || lookup.movieKeys.has(`${normalizedTitle}|`) || lookup.movieWordSets.some(ws => libraryWordsInDiscover(ws, discoverWords)))
+      : (lookup.showKeys.has(normalizedTitle) || lookup.showWordSets.some(ws => libraryWordsInDiscover(ws, discoverWords)));
     if (inLibrary) card.classList.add('in-library');
 
     card.setAttribute('tabindex', '0');
@@ -939,6 +1026,7 @@ function renderDiscoverResults(items, append) {
     const rating = item.rating ? Number(item.rating).toFixed(1) : 'N/A';
 
     card.innerHTML = `
+      ${inLibrary ? '<div class="in-library-badge">In Library</div>' : ''}
       <img class="discover-card-poster" src="${item.poster}" alt="${escapeHtml(item.title)} poster">
       <div class="discover-card-body">
         <div class="discover-card-title">${escapeHtml(item.title)}</div>
@@ -1326,8 +1414,12 @@ function setupSpatialNavigation() {
           currentFocused.click();
         }
         break;
-      case 'Escape':
       case 'Backspace':
+        if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || document.activeElement.isContentEditable)) {
+          break;
+        }
+        // falls through
+      case 'Escape':
         if (coverPickerModal.classList.contains('active')) {
           e.preventDefault();
           closeCoverArtPicker();

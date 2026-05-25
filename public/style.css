@@ -1499,6 +1499,48 @@ h1, h2, h3, .brand {
   align-items: end;
 }
 
+.discover-search-row {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.discover-search-row .search-label {
+  color: #9f9f9f;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.discover-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.discover-search-wrap .input-text {
+  width: 100%;
+  padding-right: 36px;
+}
+
+.discover-search-wrap .search-clear-btn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.discover-search-wrap .search-clear-btn:hover {
+  color: #fff;
+}
+
 .discover-control-group {
   display: flex;
   flex-direction: column;
@@ -1586,6 +1628,7 @@ h1, h2, h3, .brand {
   flex-direction: column;
   min-height: 355px;
   transition: all 0.2s ease;
+  position: relative;
 }
 
 .discover-card-poster {
@@ -1647,6 +1690,23 @@ h1, h2, h3, .brand {
 .discover-card.in-library {
   border: 2px solid #31ff6a;
   box-shadow: 0 0 16px rgba(49, 255, 106, 0.45);
+}
+
+.in-library-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(49, 255, 106, 0.85);
+  color: #111;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 2;
+  backdrop-filter: blur(4px);
 }
 
 .discover-card.in-library.focusable.focused {
